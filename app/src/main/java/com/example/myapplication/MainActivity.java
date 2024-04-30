@@ -1,6 +1,7 @@
 package com.example.myapplication;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -16,8 +17,14 @@ import android.os.Bundle;
 import android.os.ParcelUuid;
 import android.os.PatternMatcher;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
@@ -43,11 +50,13 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        que = new ArrayDeque<>();
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
 //        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
 //            if (ContextCompat.checkSelfPermission(getBaseContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION)
 //                    != PackageManager.PERMISSION_GRANTED) {
@@ -58,8 +67,66 @@ public class MainActivity extends AppCompatActivity {
 //            }
 //        }
 
-        que = new ArrayDeque<>();
+        if (que == null) que = new ArrayDeque<>();
 
+        // ペアリング済みのデバイスを取得
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (!bluetoothAdapter.isEnabled()) {
+            Toast toast = Toast.makeText(getBaseContext(), "Bluetoothをオンにしてください", Toast.LENGTH_SHORT);
+            toast.show();
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                Toast toast = Toast.makeText(getBaseContext(), "Bluetoothの接続を許可してください", Toast.LENGTH_SHORT);
+                toast.show();
+                requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 0);
+            }
+        }
+        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+        // Spinnerにセット
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        for (BluetoothDevice device : pairedDevices){
+            adapter.add(device.getName());
+        }
+        Spinner spinner = findViewById(R.id.device_selector);
+        spinner.setAdapter(adapter);
+
+        TextView mac_text = findViewById(R.id.mac_text);
+
+        // Spinnerのリスナー
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                Log.d("set", spinner.getSelectedItem().toString());
+                if (!bluetoothAdapter.isEnabled()) {
+                    Toast toast = Toast.makeText(getBaseContext(), "Bluetoothをオンにしてください", Toast.LENGTH_SHORT);
+                    toast.show();
+                    return;
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        Toast toast = Toast.makeText(getBaseContext(), "Bluetoothの接続を許可してください", Toast.LENGTH_SHORT);
+                        toast.show();
+                        requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 0);
+                    }
+                }
+                for (BluetoothDevice device : pairedDevices) {
+                    if (device.getName().equals(spinner.getSelectedItem().toString())) {
+                        mac_text.setText("mac: "+device.getAddress());
+                        break;
+                    }
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+                return;
+            }
+        });
+
+        // 接続ボタンのリスナー
         View button = findViewById(R.id.button);
         status_button = button;
         setIs_connecting(false);
@@ -80,7 +147,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                     setIs_connecting(false);
                 } else {
-                    BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
                     if (!bluetoothAdapter.isEnabled()) {
                         Toast toast = Toast.makeText(getBaseContext(), "Bluetoothをオンにしてください", Toast.LENGTH_SHORT);
                         toast.show();
@@ -93,17 +159,27 @@ public class MainActivity extends AppCompatActivity {
                             requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 0);
                         }
                     }
-                    Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+                    String mac_address = "";
                     if (pairedDevices.size() > 0) {
                         for (BluetoothDevice device : pairedDevices) {
-                            String name = device.getName();
-                            String mac = device.getAddress();
-                            Log.d("Names", name + ": " + mac);
+                            if (device.getName().equals(spinner.getSelectedItem().toString())) {
+                                mac_address = device.getAddress();
+                                break;
+                            }
                         }
+                    }
+                    if (mac_address.isEmpty()) {
+                        Toast toast = Toast.makeText(
+                                getBaseContext(),
+                                spinner.getSelectedItem() + "が見つかりませんでした",
+                                Toast.LENGTH_SHORT
+                        );
+                        toast.show();
+                        return;
                     }
 
                     // String mac_address = "C8:2A:DD:AC:1D:62";
-                    String mac_address = "08:BE:AC:3E:2A:9A";
+                    // String mac_address = "08:BE:AC:3E:2A:9A";
                     // シリアルポート通信のUUID
                     UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
                     // UUID uuid = UUID.nameUUIDFromBytes(new byte[] {(byte) 0x1124});
@@ -133,6 +209,13 @@ public class MainActivity extends AppCompatActivity {
 
         Button mediaNextButton = findViewById(R.id.media_next_button);
         mediaNextButton.setOnClickListener(v -> que.add(media_next));
+
+        View hider = findViewById(R.id.hider);
+        hider.setVisibility(View.INVISIBLE);
+        SwitchCompat switchCompat = findViewById(R.id.hide_toggle);
+        switchCompat.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> hider.setVisibility(isChecked ? View.VISIBLE : View.INVISIBLE)
+        );
     }
 
     public Queue<Byte> getQue() {
@@ -146,5 +229,17 @@ public class MainActivity extends AppCompatActivity {
         }else{
             ((Button) status_button).setText("接続開始");
         }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            que.add(rightKey);
+            return true;
+        } else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            que.add(leftKey);
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
     }
 }

@@ -6,6 +6,34 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <Spinner
+        android:id="@+id/device_selector"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/media_play_pause_button"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/hide_toggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="隠す"
+        android:layout_marginBottom="30dp"
+        android:layout_marginEnd="30dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/media_next_button"/>
+
+    <TextView
+        android:id="@+id/mac_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="mac_address"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/device_selector" />
+
     <Button
         android:id="@+id/button"
         android:layout_width="0dp"
@@ -66,6 +94,18 @@
         app:icon="@drawable/baseline_skip_next_24"
         app:layout_constraintBottom_toTopOf="@id/left_button"
         app:layout_constraintStart_toEndOf="@id/media_play_pause_button"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <View
+        android:id="@+id/hider"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:foreground="@color/hider"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintTop_toTopOf="@id/media_play_pause_button"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
