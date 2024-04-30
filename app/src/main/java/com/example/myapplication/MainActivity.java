@@ -35,6 +35,10 @@ public class MainActivity extends AppCompatActivity {
     private static final byte media_next = (byte) 0xB0;
     private Queue<Byte> que;
 
+    private boolean is_connecting = false;
+    private View status_button;
+    private Connect connect;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,85 +61,90 @@ public class MainActivity extends AppCompatActivity {
         que = new ArrayDeque<>();
 
         View button = findViewById(R.id.button);
+        status_button = button;
+        setIs_connecting(false);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                if (!bluetoothAdapter.isEnabled()) {
-                    Toast toast = Toast.makeText(getBaseContext(), "Bluetoothをオンにしてください", Toast.LENGTH_SHORT);
+                if(is_connecting){
+                    Toast toast = Toast.makeText(getBaseContext(), "接続を解除します", Toast.LENGTH_SHORT);
                     toast.show();
-                    return;
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                        Toast toast = Toast.makeText(getBaseContext(), "Bluetoothの接続を許可してください", Toast.LENGTH_SHORT);
+                    que.add((byte) 0x00);
+                    try{
+                        Thread.sleep(100);
+                    } catch (Exception e) {
+                        Log.d("Interrupted", e.toString());
+                    }
+                    if(connect != null && connect.isAlive()){
+                        connect.cancel();
+                    }
+                    setIs_connecting(false);
+                } else {
+                    BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                    if (!bluetoothAdapter.isEnabled()) {
+                        Toast toast = Toast.makeText(getBaseContext(), "Bluetoothをオンにしてください", Toast.LENGTH_SHORT);
                         toast.show();
-                        requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 0);
+                        return;
                     }
-                }
-                Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
-                if (pairedDevices.size() > 0) {
-                    for (BluetoothDevice device : pairedDevices) {
-                        String name = device.getName();
-                        String mac = device.getAddress();
-                        Log.d("Names", name + ": " + mac);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                            Toast toast = Toast.makeText(getBaseContext(), "Bluetoothの接続を許可してください", Toast.LENGTH_SHORT);
+                            toast.show();
+                            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 0);
+                        }
                     }
+                    Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+                    if (pairedDevices.size() > 0) {
+                        for (BluetoothDevice device : pairedDevices) {
+                            String name = device.getName();
+                            String mac = device.getAddress();
+                            Log.d("Names", name + ": " + mac);
+                        }
+                    }
+
+                    // String mac_address = "C8:2A:DD:AC:1D:62";
+                    String mac_address = "08:BE:AC:3E:2A:9A";
+                    // シリアルポート通信のUUID
+                    UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+                    // UUID uuid = UUID.nameUUIDFromBytes(new byte[] {(byte) 0x1124});
+                    BluetoothDevice bluetoothDevice = bluetoothAdapter.getRemoteDevice(mac_address);
+                    Log.d("Discovering", "is " + bluetoothAdapter.isDiscovering());
+
+                    connect = new Connect(MainActivity.this, bluetoothDevice, uuid);
+                    Thread thread = new Thread(connect);
+                    que.clear();
+                    setIs_connecting(true);
+                    thread.start();
                 }
-
-                // String mac_address = "C8:2A:DD:AC:1D:62";
-                String mac_address = "08:BE:AC:3E:2A:9A";
-                UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-                // UUID uuid = UUID.nameUUIDFromBytes(new byte[] {(byte) 0x1124});
-                BluetoothDevice bluetoothDevice = bluetoothAdapter.getRemoteDevice(mac_address);
-                Log.d("Discovering", "is " + bluetoothAdapter.isDiscovering());
-
-                Thread thread = new Thread(new Connect(MainActivity.this, bluetoothDevice, uuid));
-                thread.start();
             }
         });
 
         Button leftButton = findViewById(R.id.left_button);
-        leftButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                que.add(leftKey);
-            }
-        });
+        leftButton.setOnClickListener(v -> que.add(leftKey));
 
         Button rightButton = findViewById(R.id.right_button);
-        rightButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                que.add(rightKey);
-            }
-        });
+        rightButton.setOnClickListener(v -> que.add(rightKey));
 
         Button mediaPlayPauseButton = findViewById(R.id.media_play_pause_button);
-        mediaPlayPauseButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                que.add(media_play_pause);
-            }
-        });
+        mediaPlayPauseButton.setOnClickListener(v -> que.add(media_play_pause));
 
         Button mediaPrevButton = findViewById(R.id.media_prev_button);
-        mediaPrevButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                que.add(media_prev);
-            }
-        });
+        mediaPrevButton.setOnClickListener(v -> que.add(media_prev));
 
         Button mediaNextButton = findViewById(R.id.media_next_button);
-        mediaNextButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                que.add(media_next);
-            }
-        });
+        mediaNextButton.setOnClickListener(v -> que.add(media_next));
     }
 
     public Queue<Byte> getQue() {
         return que;
+    }
+
+    public void setIs_connecting(boolean is_connecting) {
+        this.is_connecting = is_connecting;
+        if(is_connecting){
+            ((Button) status_button).setText("接続解除");
+        }else{
+            ((Button) status_button).setText("接続開始");
+        }
     }
 }

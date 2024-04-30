@@ -62,6 +62,8 @@ public class Connect extends Thread {
             } catch (IOException closeException) {
                 Log.e("Bluetooth Error", closeException + " in " + this);
             }
+            mainActivity.setIs_connecting(false);
+            return;
         }
 
         try{
@@ -70,19 +72,23 @@ public class Connect extends Thread {
                 if(que.size() > 0){
                     Byte data = que.poll();
                     if(data == null) continue;
-                    if(data == 0x0) break;
                     byte[] command = new byte[]{data};
                     outputStream.write(command);
+                    if(data == 0x0) break;
                 }
             }
         } catch (IOException e){
             Log.e("OutputStream Error", e + " in " + this);
+            mainActivity.setIs_connecting(false);
+            return;
         }
 
         try {
             mmSocket.close();
         } catch (IOException closeException) {
             Log.e("Bluetooth Error", closeException + " in " + this);
+        } finally {
+            mainActivity.setIs_connecting(false);
         }
     }
 
@@ -91,6 +97,8 @@ public class Connect extends Thread {
             mmSocket.close();
         } catch (IOException closeException) {
             Log.e("Bluetooth Error", closeException + " in " + this);
+        } finally {
+            mainActivity.setIs_connecting(false);
         }
     }
 }
