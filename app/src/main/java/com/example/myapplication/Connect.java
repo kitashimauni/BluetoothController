@@ -66,6 +66,8 @@ public class Connect extends Thread {
             return;
         }
 
+        mainActivity.getHandler().post(() -> {Toast.makeText(mainActivity.getBaseContext(), "接続しました", Toast.LENGTH_SHORT).show();});
+
         try{
             OutputStream outputStream = mmSocket.getOutputStream();
             while(true){

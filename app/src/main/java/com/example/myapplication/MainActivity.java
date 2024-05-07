@@ -14,6 +14,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ParcelUuid;
 import android.os.PatternMatcher;
 import android.util.Log;
@@ -44,7 +45,9 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean is_connecting = false;
     private View status_button;
+    private Thread thread;
     private Connect connect;
+    private Handler handler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         que = new ArrayDeque<>();
+        handler = new Handler();
     }
 
     @Override
@@ -68,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
 //        }
 
         if (que == null) que = new ArrayDeque<>();
+        if (handler == null) handler = new Handler();
 
         // ペアリング済みのデバイスを取得
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -129,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
         // 接続ボタンのリスナー
         View button = findViewById(R.id.button);
         status_button = button;
-        setIs_connecting(false);
+        setIs_connecting(thread != null && thread.isAlive());
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -142,8 +147,9 @@ public class MainActivity extends AppCompatActivity {
                     } catch (Exception e) {
                         Log.d("Interrupted", e.toString());
                     }
-                    if(connect != null && connect.isAlive()){
+                    if(thread != null && thread.isAlive()){
                         connect.cancel();
+                        Log.d("connect", "Connect canceled");
                     }
                     setIs_connecting(false);
                 } else {
@@ -187,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("Discovering", "is " + bluetoothAdapter.isDiscovering());
 
                     connect = new Connect(MainActivity.this, bluetoothDevice, uuid);
-                    Thread thread = new Thread(connect);
+                    thread = new Thread(connect);
                     que.clear();
                     setIs_connecting(true);
                     thread.start();
@@ -241,5 +247,9 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    public Handler getHandler() {
+        return handler;
     }
 }
